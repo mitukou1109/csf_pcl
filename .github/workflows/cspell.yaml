@@ -17,5 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cspell-cli . --show-context --gitignore
-      - run: find . -path "**/.*" -prune -o -print |
+      - run: find . -path "**/.*" -prune -o
+          -path "./CPPLINT.cfg" -prune -o
+          -print |
           cspell-cli --show-context --gitignore --unique stdin
