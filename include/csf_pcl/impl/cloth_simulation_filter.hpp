@@ -73,6 +73,91 @@ void ClothSimulationFilter<PointT>::Cloth::applyConstraint()
 }
 
 template <typename PointT>
+void ClothSimulationFilter<PointT>::Cloth::applyPostProcessing(
+  const Eigen::ArrayXXf & intersection_height_map, const float slope_fitting_threshold)
+{
+  std::vector<GridCoordinates> movable_particles;
+
+  for (Eigen::Index i = 0; i < size_.x(); ++i) {
+    for (Eigen::Index j = 0; j < size_.y(); ++j) {
+      if (!movability_map_(i, j)) {
+        continue;
+      }
+      movable_particles.emplace_back(i, j);
+    }
+  }
+
+  constexpr std::array<std::array<Eigen::Index, 2>, 4> neighbors = {
+    {{-1, 0}, {0, -1}, {1, 0}, {0, 1}}};
+
+  while (true) {
+    std::vector<std::pair<GridCoordinates, std::vector<GridCoordinates>>>
+      edge_particles_with_unmovable_neighbors;
+
+    for (auto it = movable_particles.begin(); it != movable_particles.end();) {
+      if (!movability_map_(it->x(), it->y())) {
+        it = movable_particles.erase(it);
+        continue;
+      }
+
+      bool is_on_edge = false;
+      std::vector<GridCoordinates> unmovable_neighbors;
+
+      for (size_t n = 0; n < neighbors.size(); ++n) {
+        const auto ni = it->x() + neighbors[n][0];
+        const auto nj = it->y() + neighbors[n][1];
+        if (ni < 0 || ni >= size_.x() || nj < 0 || nj >= size_.y()) {
+          continue;
+        }
+        if (!movability_map_(ni, nj)) {
+          is_on_edge = true;
+          unmovable_neighbors.emplace_back(ni, nj);
+        }
+      }
+
+      if (is_on_edge) {
+        edge_particles_with_unmovable_neighbors.emplace_back(*it, unmovable_neighbors);
+        it = movable_particles.erase(it);
+        continue;
+      }
+      ++it;
+    }
+
+    if (edge_particles_with_unmovable_neighbors.empty()) {
+      break;
+    }
+
+    for (const auto & [edge_particle, unmovable_neighbors] :
+         edge_particles_with_unmovable_neighbors) {
+      applySlopeFitting(
+        intersection_height_map, edge_particle, unmovable_neighbors, slope_fitting_threshold);
+    }
+  }
+}
+
+template <typename PointT>
+void ClothSimulationFilter<PointT>::Cloth::applySlopeFitting(
+  const Eigen::ArrayXXf & intersection_height_map, const GridCoordinates & edge_particle,
+  const std::vector<GridCoordinates> & unmovable_neighbors, const float slope_fitting_threshold)
+{
+  for (const auto & neighbor : unmovable_neighbors) {
+    const auto height_difference = (intersection_height_map(edge_particle.x(), edge_particle.y()) -
+                                    current_height_map_(edge_particle.x(), edge_particle.y())) -
+                                   (intersection_height_map(neighbor.x(), neighbor.y()) -
+                                    current_height_map_(neighbor.x(), neighbor.y()));
+
+    if (std::abs(height_difference) > slope_fitting_threshold) {
+      continue;
+    }
+
+    current_height_map_(edge_particle.x(), edge_particle.y()) =
+      intersection_height_map(edge_particle.x(), edge_particle.y());
+    movability_map_(edge_particle.x(), edge_particle.y()) = false;
+    break;
+  }
+}
+
+template <typename PointT>
 float ClothSimulationFilter<PointT>::Cloth::getCurrentHeight(
   const GridCoordinates & grid_coords) const
 {
@@ -116,6 +201,10 @@ void ClothSimulationFilter<PointT>::applyFilter(pcl::Indices & indices)
     if (max_height_variation < iteration_termination_threshold_) {
       break;
     }
+  }
+
+  if (enable_post_processing_) {
+    cloth.applyPostProcessing(intersection_height_map, slope_fitting_threshold_);
   }
 
   indices.clear();

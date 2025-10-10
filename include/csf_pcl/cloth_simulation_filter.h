@@ -31,11 +31,15 @@ public:
   {
     iteration_termination_threshold_ = iteration_termination_threshold;
   }
+  void enablePostProcessing(const bool enable) { enable_post_processing_ = enable; }
+  void setSlopeFittingThreshold(const float slope_fitting_threshold)
+  {
+    slope_fitting_threshold_ = slope_fitting_threshold;
+  }
   void setClassThreshold(const float classification_threshold)
   {
     classification_threshold_ = classification_threshold;
   }
-  void enablePostProcessing(const bool enable) { enable_post_processing_ = enable; }
 
   float getClothResolution() const { return cloth_resolution_; }
   float getClothMargin() const { return cloth_margin_; }
@@ -45,8 +49,9 @@ public:
   float getTimeStep() const { return time_step_; }
   size_t getMaxIterations() const { return max_iterations_; }
   float getIterationTerminationThreshold() const { return iteration_termination_threshold_; }
-  float getClassThreshold() const { return classification_threshold_; }
   bool isPostProcessingEnabled() const { return enable_post_processing_; }
+  float getSlopeFittingThreshold() const { return slope_fitting_threshold_; }
+  float getClassThreshold() const { return classification_threshold_; }
 
 protected:
   void applyFilter(pcl::Indices & indices) override;
@@ -65,6 +70,9 @@ private:
     void checkIntersection(const Eigen::ArrayXXf & intersection_height_map);
 
     void applyConstraint();
+
+    void applyPostProcessing(
+      const Eigen::ArrayXXf & intersection_height_map, const float slope_fitting_threshold);
 
     float getCurrentHeight(const GridCoordinates & grid_coords) const;
 
@@ -86,6 +94,11 @@ private:
     Eigen::ArrayXXf previousHeightMap() const { return previous_height_map_; }
 
   private:
+    void applySlopeFitting(
+      const Eigen::ArrayXXf & intersection_height_map, const GridCoordinates & edge_particle,
+      const std::vector<GridCoordinates> & unmovable_neighbors,
+      const float slope_fitting_threshold);
+
     float resolution_;
     float margin_;
     size_t rigidness_;
@@ -112,11 +125,13 @@ private:
   float cloth_initial_z_offset_{0.05};
   float gravity_{9.81};
   float time_step_{0.1};
+
   size_t max_iterations_{500};
   float iteration_termination_threshold_{0.005};
 
-  float classification_threshold_{0.5};
-
   bool enable_post_processing_{true};
+  float slope_fitting_threshold_{0.3};
+
+  float classification_threshold_{0.5};
 };
 }  // namespace csf_pcl
