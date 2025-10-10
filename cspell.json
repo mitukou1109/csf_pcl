@@ -1,0 +1,18 @@
+{
+  "dictionaries": ["common_noun", "proper_noun", "miscellaneous"],
+  "dictionaryDefinitions": [
+    {
+      "name": "common_noun",
+      "path": ".cspell/common_noun.txt"
+    },
+    {
+      "name": "proper_noun",
+      "path": ".cspell/proper_noun.txt"
+    },
+    {
+      "name": "miscellaneous",
+      "path": ".cspell/miscellaneous.txt"
+    }
+  ],
+  "ignorePaths": ["CPPLINT.cfg", "cspell.json"]
+}

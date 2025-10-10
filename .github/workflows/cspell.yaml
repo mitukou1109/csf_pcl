@@ -1,0 +1,21 @@
+name: cspell
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  cspell:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/streetsidesoftware/cspell:latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: cspell-cli . --show-context --gitignore
+      - run: find . -path "**/.*" -prune -o -print |
+          cspell-cli --show-context --gitignore --unique stdin
