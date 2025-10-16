@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pcl/filters/filter_indices.h>
+#include <pcl/point_types.h>
 
 #include <optional>
 #include <utility>
@@ -15,7 +16,8 @@ class ClothSimulationFilter : public pcl::FilterIndices<PointT>
   using GridCoordinates = Eigen::Vector<Eigen::Index, 2>;
 
 public:
-  explicit ClothSimulationFilter(const bool extract_removed_indices = false);
+  explicit ClothSimulationFilter(
+    const bool extract_removed_indices = false, const bool save_cloth_points = false);
 
   void setClothResolution(const float cloth_resolution) { cloth_resolution_ = cloth_resolution; }
   void setClothMargin(const float cloth_margin) { cloth_margin_ = cloth_margin; }
@@ -60,6 +62,8 @@ public:
   bool isPostProcessingEnabled() const { return enable_post_processing_; }
   float getSlopeFittingThreshold() const { return slope_fitting_threshold_; }
   float getClassThreshold() const { return classification_threshold_; }
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr getClothPoints() const { return cloth_points_; }
 
 protected:
   void applyFilter(pcl::Indices & indices) override;
@@ -144,5 +148,9 @@ private:
   float slope_fitting_threshold_{0.3};
 
   float classification_threshold_{0.5};
+
+  bool save_cloth_points_{false};
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloth_points_;
 };
 }  // namespace csf_pcl

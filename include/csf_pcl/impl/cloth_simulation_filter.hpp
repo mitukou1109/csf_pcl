@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -173,8 +174,9 @@ Eigen::Vector2f ClothSimulationFilter<PointT>::Cloth::fromGridCoordinates(
 }
 
 template <typename PointT>
-ClothSimulationFilter<PointT>::ClothSimulationFilter(const bool extract_removed_indices)
-: pcl::FilterIndices<PointT>(extract_removed_indices)
+ClothSimulationFilter<PointT>::ClothSimulationFilter(
+  const bool extract_removed_indices, const bool save_cloth_points)
+: pcl::FilterIndices<PointT>(extract_removed_indices), save_cloth_points_(save_cloth_points)
 {
   this->filter_name_ = "ClothSimulationFilter";
 }
@@ -241,6 +243,18 @@ void ClothSimulationFilter<PointT>::applyFilter(pcl::Indices & indices)
   indices.shrink_to_fit();
   if (this->extract_removed_indices_) {
     this->removed_indices_->shrink_to_fit();
+  }
+
+  if (save_cloth_points_) {
+    cloth_points_ = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+    const auto & cloth_height_map = cloth.currentHeightMap();
+    cloth_points_->reserve(cloth_height_map.size());
+    for (Eigen::Index x = 0; x < cloth_height_map.rows(); ++x) {
+      for (Eigen::Index y = 0; y < cloth_height_map.cols(); ++y) {
+        const auto point = cloth.fromGridCoordinates({x, y});
+        cloth_points_->emplace_back(point.x(), point.y(), cloth_height_map(x, y));
+      }
+    }
   }
 }
 
