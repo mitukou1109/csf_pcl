@@ -3,6 +3,7 @@
 #include <csf_pcl/cloth_simulation_filter.h>
 #include <pcl/common/common.h>
 
+#include <algorithm>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -249,8 +250,9 @@ ClothSimulationFilter<PointT>::generateIntersectionHeightMap(const Cloth & cloth
 {
   Eigen::ArrayXXf intersection_height_map = Eigen::ArrayXXf::Constant(
     cloth.size().x(), cloth.size().y(), std::numeric_limits<float>::max());
-  Eigen::ArrayXXf distance_from_cell_center_map = Eigen::ArrayXXf::Constant(
-    cloth.size().x(), cloth.size().y(), std::numeric_limits<float>::max());
+  Eigen::Array<bool, Eigen::Dynamic, Eigen::Dynamic> valid_map =
+    Eigen::Array<bool, Eigen::Dynamic, Eigen::Dynamic>::Constant(
+      cloth.size().x(), cloth.size().y(), false);
 
   std::vector<std::optional<GridCoordinates>> input_grid_coords;
   input_grid_coords.reserve(this->input_->size());
@@ -262,17 +264,32 @@ ClothSimulationFilter<PointT>::generateIntersectionHeightMap(const Cloth & cloth
       continue;
     }
 
-    const Eigen::Vector2f cell_center =
-      cloth.fromGridCoordinates(*grid_coords) + Eigen::Vector2f::Constant(cloth_resolution_ / 2);
-    const auto distance_from_cell_center = (toEigen2f(point) - cell_center).norm();
-    if (
-      distance_from_cell_center >
-      distance_from_cell_center_map(grid_coords->x(), grid_coords->y())) {
-      continue;
-    }
+    intersection_height_map(grid_coords->x(), grid_coords->y()) =
+      std::min(intersection_height_map(grid_coords->x(), grid_coords->y()), point.z);
+    valid_map(grid_coords->x(), grid_coords->y()) = true;
+  }
 
-    distance_from_cell_center_map(grid_coords->x(), grid_coords->y()) = distance_from_cell_center;
-    intersection_height_map(grid_coords->x(), grid_coords->y()) = point.z;
+  intersection_height_map = valid_map.select(intersection_height_map, 0);
+
+  for (size_t i = 0; i < intersection_height_interpolation_max_iterations_; ++i) {
+    Eigen::ArrayXXf padded =
+      Eigen::ArrayXXf::Zero(intersection_height_map.rows() + 2, intersection_height_map.cols() + 2);
+    padded.block(1, 1, intersection_height_map.rows(), intersection_height_map.cols()) =
+      intersection_height_map;
+    intersection_height_map = valid_map.select(
+      intersection_height_map,
+      (padded.block(0, 1, intersection_height_map.rows(), intersection_height_map.cols()) +
+       padded.block(2, 1, intersection_height_map.rows(), intersection_height_map.cols()) +
+       padded.block(1, 0, intersection_height_map.rows(), intersection_height_map.cols()) +
+       padded.block(1, 2, intersection_height_map.rows(), intersection_height_map.cols())) /
+        4);
+    if (
+      (intersection_height_map -
+       padded.block(1, 1, intersection_height_map.rows(), intersection_height_map.cols()))
+        .abs()
+        .maxCoeff() < intersection_height_interpolation_termination_threshold_) {
+      break;
+    }
   }
 
   return {intersection_height_map, input_grid_coords};

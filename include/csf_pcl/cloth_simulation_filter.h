@@ -20,6 +20,14 @@ public:
   void setClothResolution(const float cloth_resolution) { cloth_resolution_ = cloth_resolution; }
   void setClothMargin(const float cloth_margin) { cloth_margin_ = cloth_margin; }
   void setClothRigidness(const size_t cloth_rigidness) { cloth_rigidness_ = cloth_rigidness; }
+  void setIntersectionHeightInterpolationMaxIterations(const size_t max_iterations)
+  {
+    intersection_height_interpolation_max_iterations_ = max_iterations;
+  }
+  void setIntersectionHeightInterpolationTerminationThreshold(const float termination_threshold)
+  {
+    intersection_height_interpolation_termination_threshold_ = termination_threshold;
+  }
   void setClothInitialZOffset(const float cloth_initial_z_offset)
   {
     cloth_initial_z_offset_ = cloth_initial_z_offset;
@@ -121,6 +129,9 @@ private:
   float cloth_resolution_{1.0};
   float cloth_margin_{2.0};
   size_t cloth_rigidness_{3};
+
+  size_t intersection_height_interpolation_max_iterations_{100};
+  float intersection_height_interpolation_termination_threshold_{0.01};
 
   float cloth_initial_z_offset_{0.05};
   float gravity_{9.81};
