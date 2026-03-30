@@ -51,14 +51,10 @@ void Cloth::applyConstraint()
   for (size_t i = 0; i < rigidness_; ++i) {
     Eigen::ArrayXXf displacement_map = Eigen::ArrayXXf::Zero(size_.x(), size_.y());
 
-    displacement_map.block(1, 0, size_.x() - 1, size_.y()) +=
-      current_height_map_.block(0, 0, size_.x() - 1, size_.y());
-    displacement_map.block(0, 0, size_.x() - 1, size_.y()) +=
-      current_height_map_.block(1, 0, size_.x() - 1, size_.y());
-    displacement_map.block(0, 1, size_.x(), size_.y() - 1) +=
-      current_height_map_.block(0, 0, size_.x(), size_.y() - 1);
-    displacement_map.block(0, 0, size_.x(), size_.y() - 1) +=
-      current_height_map_.block(0, 1, size_.x(), size_.y() - 1);
+    displacement_map.bottomRows(size_.x() - 1) += current_height_map_.topRows(size_.x() - 1);
+    displacement_map.topRows(size_.x() - 1) += current_height_map_.bottomRows(size_.x() - 1);
+    displacement_map.rightCols(size_.y() - 1) += current_height_map_.leftCols(size_.y() - 1);
+    displacement_map.leftCols(size_.y() - 1) += current_height_map_.rightCols(size_.y() - 1);
     displacement_map.row(0) += current_height_map_.row(0);
     displacement_map.row(size_.x() - 1) += current_height_map_.row(size_.x() - 1);
     displacement_map.col(0) += current_height_map_.col(0);
@@ -212,20 +208,14 @@ void ClothSimulationFilter<PointT>::applyFilter(pcl::Indices & indices)
       continue;
     }
 
-    if (
+    const auto point_on_cloth =
       std::abs((*this->input_)[i].z - cloth.getCurrentHeight(*input_grid_coords[i])) <
-      classification_threshold_) {
-      if (!this->negative_) {
-        indices.push_back(i);
-      } else if (this->extract_removed_indices_) {
-        this->removed_indices_->push_back(i);
-      }
-    } else {
-      if (this->negative_) {
-        indices.push_back(i);
-      } else if (this->extract_removed_indices_) {
-        this->removed_indices_->push_back(i);
-      }
+      classification_threshold_;
+
+    if ((point_on_cloth && !this->negative_) || (!point_on_cloth && this->negative_)) {
+      indices.push_back(i);
+    } else if (this->extract_removed_indices_) {
+      this->removed_indices_->push_back(i);
     }
   }
 
