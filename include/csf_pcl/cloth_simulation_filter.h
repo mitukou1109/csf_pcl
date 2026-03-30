@@ -9,6 +9,63 @@
 
 namespace csf_pcl
 {
+class Cloth
+{
+public:
+  using GridCoordinates = Eigen::Vector<Eigen::Index, 2>;
+
+  Cloth(
+    const Eigen::Vector2f & min_point, const Eigen::Vector2f & max_point, const float initial_z,
+    const float resolution, const float margin, const size_t rigidness, const float gravity,
+    const float time_step);
+
+  void step();
+
+  void checkIntersection(const Eigen::ArrayXXf & intersection_height_map);
+
+  void applyConstraint();
+
+  void applyPostProcessing(
+    const Eigen::ArrayXXf & intersection_height_map, const float slope_fitting_threshold);
+
+  float getCurrentHeight(const GridCoordinates & grid_coords) const;
+
+  template <typename T>
+  std::optional<GridCoordinates> toGridCoordinates(const T & point_2d) const
+  {
+    const auto grid_coords = ((point_2d - origin_) / resolution_).template cast<Eigen::Index>();
+    if ((grid_coords.array() < 0 || grid_coords.array() >= size_.array()).any()) {
+      return std::nullopt;
+    }
+    return grid_coords;
+  }
+
+  Eigen::Vector2f fromGridCoordinates(const GridCoordinates & grid_coords) const;
+
+  Eigen::Vector2f origin() const { return origin_; }
+  GridCoordinates size() const { return size_; }
+  Eigen::ArrayXXf currentHeightMap() const { return current_height_map_; }
+  Eigen::ArrayXXf previousHeightMap() const { return previous_height_map_; }
+
+private:
+  void applySlopeFitting(
+    const Eigen::ArrayXXf & intersection_height_map, const GridCoordinates & edge_particle,
+    const std::vector<GridCoordinates> & unmovable_neighbors, const float slope_fitting_threshold);
+
+  float resolution_;
+  float margin_;
+  size_t rigidness_;
+  float gravity_;
+  float time_step_;
+
+  Eigen::Vector2f origin_;
+  GridCoordinates size_;
+
+  Eigen::ArrayXXf current_height_map_;
+  Eigen::ArrayXXf previous_height_map_;
+  Eigen::Array<bool, Eigen::Dynamic, Eigen::Dynamic> movability_map_;
+};
+
 template <typename PointT>
 class ClothSimulationFilter : public pcl::FilterIndices<PointT>
 {
@@ -69,62 +126,6 @@ protected:
   void applyFilter(pcl::Indices & indices) override;
 
 private:
-  class Cloth
-  {
-  public:
-    Cloth(
-      const Eigen::Vector2f & min_point, const Eigen::Vector2f & max_point, const float initial_z,
-      const float resolution, const float margin, const size_t rigidness, const float gravity,
-      const float time_step);
-
-    void step();
-
-    void checkIntersection(const Eigen::ArrayXXf & intersection_height_map);
-
-    void applyConstraint();
-
-    void applyPostProcessing(
-      const Eigen::ArrayXXf & intersection_height_map, const float slope_fitting_threshold);
-
-    float getCurrentHeight(const GridCoordinates & grid_coords) const;
-
-    template <typename T>
-    std::optional<GridCoordinates> toGridCoordinates(const T & point_2d) const
-    {
-      const auto grid_coords = ((point_2d - origin_) / resolution_).template cast<Eigen::Index>();
-      if ((grid_coords.array() < 0 || grid_coords.array() >= size_.array()).any()) {
-        return std::nullopt;
-      }
-      return grid_coords;
-    }
-
-    Eigen::Vector2f fromGridCoordinates(const GridCoordinates & grid_coords) const;
-
-    Eigen::Vector2f origin() const { return origin_; }
-    GridCoordinates size() const { return size_; }
-    Eigen::ArrayXXf currentHeightMap() const { return current_height_map_; }
-    Eigen::ArrayXXf previousHeightMap() const { return previous_height_map_; }
-
-  private:
-    void applySlopeFitting(
-      const Eigen::ArrayXXf & intersection_height_map, const GridCoordinates & edge_particle,
-      const std::vector<GridCoordinates> & unmovable_neighbors,
-      const float slope_fitting_threshold);
-
-    float resolution_;
-    float margin_;
-    size_t rigidness_;
-    float gravity_;
-    float time_step_;
-
-    Eigen::Vector2f origin_;
-    GridCoordinates size_;
-
-    Eigen::ArrayXXf current_height_map_;
-    Eigen::ArrayXXf previous_height_map_;
-    Eigen::Array<bool, Eigen::Dynamic, Eigen::Dynamic> movability_map_;
-  };
-
   std::pair<Eigen::ArrayXXf, std::vector<std::optional<GridCoordinates>>>
   generateIntersectionHeightMap(const Cloth & cloth) const;
 

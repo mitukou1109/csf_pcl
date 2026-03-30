@@ -11,8 +11,7 @@
 
 namespace csf_pcl
 {
-template <typename PointT>
-ClothSimulationFilter<PointT>::Cloth::Cloth(
+Cloth::Cloth(
   const Eigen::Vector2f & min_point, const Eigen::Vector2f & max_point, const float initial_z,
   const float resolution, const float margin, const size_t rigidness, const float gravity,
   const float time_step)
@@ -32,26 +31,22 @@ ClothSimulationFilter<PointT>::Cloth::Cloth(
     Eigen::Array<bool, Eigen::Dynamic, Eigen::Dynamic>::Constant(size_.x(), size_.y(), true);
 }
 
-template <typename PointT>
-void ClothSimulationFilter<PointT>::Cloth::step()
+void Cloth::step()
 {
   const auto new_height_map = current_height_map_ + movability_map_.cast<float>() *
                                                       (current_height_map_ - previous_height_map_ +
-                                                       gravity_ * std::pow(time_step_, 2));
+                                                       gravity_ * time_step_ * time_step_);
   previous_height_map_ = current_height_map_;
   current_height_map_ = new_height_map;
 }
 
-template <typename PointT>
-void ClothSimulationFilter<PointT>::Cloth::checkIntersection(
-  const Eigen::ArrayXXf & intersection_height_map)
+void Cloth::checkIntersection(const Eigen::ArrayXXf & intersection_height_map)
 {
   movability_map_ = (current_height_map_ < intersection_height_map);
   current_height_map_ = movability_map_.select(current_height_map_, intersection_height_map);
 }
 
-template <typename PointT>
-void ClothSimulationFilter<PointT>::Cloth::applyConstraint()
+void Cloth::applyConstraint()
 {
   for (size_t i = 0; i < rigidness_; ++i) {
     Eigen::ArrayXXf displacement_map = Eigen::ArrayXXf::Zero(size_.x(), size_.y());
@@ -74,8 +69,7 @@ void ClothSimulationFilter<PointT>::Cloth::applyConstraint()
   }
 }
 
-template <typename PointT>
-void ClothSimulationFilter<PointT>::Cloth::applyPostProcessing(
+void Cloth::applyPostProcessing(
   const Eigen::ArrayXXf & intersection_height_map, const float slope_fitting_threshold)
 {
   std::vector<GridCoordinates> movable_particles;
@@ -137,8 +131,7 @@ void ClothSimulationFilter<PointT>::Cloth::applyPostProcessing(
   }
 }
 
-template <typename PointT>
-void ClothSimulationFilter<PointT>::Cloth::applySlopeFitting(
+void Cloth::applySlopeFitting(
   const Eigen::ArrayXXf & intersection_height_map, const GridCoordinates & edge_particle,
   const std::vector<GridCoordinates> & unmovable_neighbors, const float slope_fitting_threshold)
 {
@@ -159,18 +152,14 @@ void ClothSimulationFilter<PointT>::Cloth::applySlopeFitting(
   }
 }
 
-template <typename PointT>
-float ClothSimulationFilter<PointT>::Cloth::getCurrentHeight(
-  const GridCoordinates & grid_coords) const
+float Cloth::getCurrentHeight(const GridCoordinates & grid_coords) const
 {
   return current_height_map_(grid_coords.x(), grid_coords.y());
 }
 
-template <typename PointT>
-Eigen::Vector2f ClothSimulationFilter<PointT>::Cloth::fromGridCoordinates(
-  const GridCoordinates & grid_coords) const
+Eigen::Vector2f Cloth::fromGridCoordinates(const GridCoordinates & grid_coords) const
 {
-  return origin_ + grid_coords.template cast<float>() * resolution_;
+  return origin_ + grid_coords.cast<float>() * resolution_;
 }
 
 template <typename PointT>
